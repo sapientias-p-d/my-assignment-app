@@ -21,12 +21,12 @@ import {
 // --- Firebase 설정 ---
 // 이 곳에 본인의 Firebase 프로젝트 설정 코드를 붙여넣어 주세요.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyClvFkfRyG3daXrZP1C-a7w9Jhm9OwNV54",
+  authDomain: "assignment-management-6bcc9.firebaseapp.com",
+  projectId: "assignment-management-6bcc9",
+  storageBucket: "assignment-management-6bcc9.firebasestorage.app",
+  messagingSenderId: "647736009966",
+  appId: "1:647736009966:web:6e6220b9eeb58243477fff"
 };
 
 // Firebase 앱 및 서비스 초기화
