@@ -9,7 +9,9 @@ import {
     deleteDoc, 
     updateDoc,
     query,
-    writeBatch
+    writeBatch,
+    where,
+    getDocs
 } from 'firebase/firestore';
 import { 
     getStorage, 
@@ -29,31 +31,31 @@ const firebaseConfig = {
   appId: "1:647736009966:web:6e6220b9eeb58243477fff"
 };
 
-
 // Firebase 앱 및 서비스 초기화
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
 // --- 아이콘 컴포넌트 (SVG) ---
-const BookIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-    </svg>
-);
+const BookIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>;
 const UsersIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const CheckCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
 const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>;
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
 const CameraIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>;
+const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>;
+const ArchiveIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><rect width="22" height="5" x="1" y="3" rx="1"/><path d="M10 12h4"/></svg>;
+
 
 // --- 메인 앱 컴포넌트 ---
 export default function App() {
+    const [classes, setClasses] = useState([]);
     const [students, setStudents] = useState([]);
-    const [assignments, setAssignments] = useState([]);
+    const [allAssignments, setAllAssignments] = useState([]);
     const [submissions, setSubmissions] = useState([]);
+    
+    const [selectedClassId, setSelectedClassId] = useState('');
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState({ type: null, data: null });
@@ -61,28 +63,35 @@ export default function App() {
     // Firestore 데이터 실시간 구독
     useEffect(() => {
         setLoading(true);
-        const unsubStudents = onSnapshot(query(collection(db, "students")), (snapshot) => {
+        const unsubClasses = onSnapshot(collection(db, "classes"), (snapshot) => {
+            setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        const unsubStudents = onSnapshot(collection(db, "students"), (snapshot) => {
             setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
-        const unsubAssignments = onSnapshot(query(collection(db, "assignments")), (snapshot) => {
-            setAssignments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const unsubAssignments = onSnapshot(collection(db, "assignments"), (snapshot) => {
+            setAllAssignments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
-        const unsubSubmissions = onSnapshot(query(collection(db, "submissions")), (snapshot) => {
+        const unsubSubmissions = onSnapshot(collection(db, "submissions"), (snapshot) => {
             setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             setLoading(false);
         });
 
-        // 컴포넌트 언마운트 시 구독 해제
         return () => {
+            unsubClasses();
             unsubStudents();
             unsubAssignments();
             unsubSubmissions();
         };
     }, []);
 
+    // 학급 선택에 따른 데이터 필터링
+    const currentStudents = students.filter(s => s.classId === selectedClassId);
+    const currentAssignments = allAssignments.filter(a => a.classId === selectedClassId && !a.isArchived);
+    
     // Helper 함수
     const getUnsubmittedCount = (studentId) => {
-        return assignments.length - submissions.filter(s => s.studentId === studentId && s.submitted).length;
+        return currentAssignments.length - submissions.filter(s => s.studentId === studentId && currentAssignments.some(a => a.id === s.assignmentId) && s.submitted).length;
     };
 
     const isSubmitted = (studentId, assignmentId) => {
@@ -90,21 +99,36 @@ export default function App() {
     };
 
     // 통계 데이터
-    const totalStudents = students.length;
-    const totalSubmissions = submissions.filter(s => s.submitted).length;
-    const totalPossibleSubmissions = students.length * assignments.length;
+    const totalStudents = currentStudents.length;
+    const totalSubmissions = submissions.filter(s => currentStudents.some(st => st.id === s.studentId) && currentAssignments.some(a => a.id === s.assignmentId) && s.submitted).length;
+    const totalPossibleSubmissions = totalStudents * currentAssignments.length;
     const notSubmittedCount = totalPossibleSubmissions - totalSubmissions;
 
-    // 필터링된 학생 목록
-    const filteredStudents = students.filter(student => {
+    // 학생 목록 필터링
+    const filteredStudents = currentStudents.filter(student => {
         if (filter === 'all') return true;
         const unsubmittedCount = getUnsubmittedCount(student.id);
-        if (filter === 'submitted') return assignments.length > 0 && unsubmittedCount === 0;
+        if (filter === 'submitted') return currentAssignments.length > 0 && unsubmittedCount === 0;
         if (filter === 'not-submitted') return unsubmittedCount > 0;
         return true;
     });
 
     // --- Firestore 데이터 핸들러 ---
+    const handleAddClass = async (className) => await addDoc(collection(db, "classes"), { name: className });
+    const handleDeleteClass = async (classId) => await deleteDoc(doc(db, "classes", classId)); // Note: In a real app, you'd handle students/assignments in the class.
+    
+    const handleAddStudent = async (studentData) => await addDoc(collection(db, "students"), { ...studentData, classId: selectedClassId });
+    const handleUpdateStudent = async (studentData) => { const { id, ...data } = studentData; await updateDoc(doc(db, "students", id), data); };
+    const handleDeleteStudent = async (studentId) => {
+        await deleteDoc(doc(db, "students", studentId));
+        const batch = writeBatch(db);
+        submissions.filter(s => s.studentId === studentId).forEach(sub => batch.delete(doc(db, "submissions", sub.id)));
+        await batch.commit();
+    };
+
+    const handleAddAssignment = async (assignmentData) => await addDoc(collection(db, "assignments"), { ...assignmentData, classId: selectedClassId, isArchived: false });
+    const handleArchiveAssignment = async (assignmentId) => await updateDoc(doc(db, "assignments", assignmentId), { isArchived: true });
+
     const handleToggleSubmission = async (studentId, assignmentId) => {
         const submission = submissions.find(s => s.studentId === studentId && s.assignmentId === assignmentId);
         if (submission) {
@@ -113,83 +137,95 @@ export default function App() {
             await addDoc(collection(db, "submissions"), { studentId, assignmentId, submitted: true });
         }
     };
-    
-    const handleAddStudent = async (studentData) => {
-        await addDoc(collection(db, "students"), studentData);
-        setModal({ type: null, data: null });
-    };
 
-    const handleUpdateStudent = async (studentData) => {
-        const { id, ...data } = studentData;
-        await updateDoc(doc(db, "students", id), data);
-        setModal({ type: null, data: null });
-    };
+    const handleExportData = async () => {
+        const classAssignments = allAssignments.filter(a => a.classId === selectedClassId);
+        const classStudents = students.filter(s => s.classId === selectedClassId);
+        
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF for BOM to handle Korean in Excel
+        csvContent += "과제 날짜,교과,과제 제목,학생 이름,제출 여부\r\n";
 
-    const handleDeleteStudent = async (studentId) => {
-        await deleteDoc(doc(db, "students", studentId));
-        const batch = writeBatch(db);
-        const studentSubmissions = submissions.filter(s => s.studentId === studentId);
-        studentSubmissions.forEach(sub => batch.delete(doc(db, "submissions", sub.id)));
-        await batch.commit();
-        setModal({ type: null, data: null });
-    };
+        classAssignments.forEach(assignment => {
+            classStudents.forEach(student => {
+                const submitted = isSubmitted(student.id, assignment.id) ? 'O' : 'X';
+                const row = [
+                    assignment.dueDate || '미지정',
+                    `"${assignment.subject}"`,
+                    `"${assignment.title}"`,
+                    `"${student.name}"`,
+                    submitted
+                ].join(',');
+                csvContent += row + "\r\n";
+            });
+        });
 
-    const handleAddAssignment = async (assignmentData) => {
-        await addDoc(collection(db, "assignments"), assignmentData);
-    };
-
-    const handleDeleteAssignment = async (assignmentId) => {
-        await deleteDoc(doc(db, "assignments", assignmentId));
-        const batch = writeBatch(db);
-        const assignmentSubmissions = submissions.filter(s => s.assignmentId === assignmentId);
-        assignmentSubmissions.forEach(sub => batch.delete(doc(db, "submissions", sub.id)));
-        await batch.commit();
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        const className = classes.find(c => c.id === selectedClassId)?.name || 'export';
+        link.setAttribute("download", `${className}_과제_기록.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
         <div className="bg-gray-100 min-h-screen font-sans">
             <Header onMenuClick={(type) => setModal({ type, data: null })} />
             <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <Dashboard 
-                    totalStudents={totalStudents}
-                    submittedCount={totalSubmissions}
-                    notSubmittedCount={notSubmittedCount}
-                />
-                <section className="mt-12">
-                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                        <h2 className="text-3xl font-bold text-gray-800">학생 목록</h2>
-                        <FilterControls currentFilter={filter} onFilterChange={setFilter} />
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h2 className="text-3xl font-bold text-gray-800">과제 현황</h2>
+                    <ClassSelector classes={classes} selectedClassId={selectedClassId} onClassChange={setSelectedClassId} />
+                </div>
+
+                {loading ? (
+                    <div className="text-center py-16"><p className="text-gray-500 text-lg">데이터를 불러오는 중입니다...</p></div>
+                ) : selectedClassId ? (
+                    <>
+                        <Dashboard totalStudents={totalStudents} submittedCount={totalSubmissions} notSubmittedCount={notSubmittedCount} />
+                        <section className="mt-12">
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                                <h3 className="text-2xl font-bold text-gray-800">학생 목록</h3>
+                                <FilterControls currentFilter={filter} onFilterChange={setFilter} />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                                {filteredStudents.map(student => (
+                                    <StudentCard 
+                                        key={student.id}
+                                        student={student}
+                                        assignments={currentAssignments}
+                                        unsubmittedCount={getUnsubmittedCount(student.id)}
+                                        isSubmitted={isSubmitted}
+                                        onToggleSubmission={handleToggleSubmission}
+                                        onDetailClick={() => setModal({ type: 'studentDetail', data: student })}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    </>
+                ) : (
+                    <div className="text-center py-20 bg-white rounded-xl shadow-md">
+                        <h3 className="text-2xl font-semibold text-gray-700">학급을 선택해주세요</h3>
+                        <p className="text-gray-500 mt-2">상단의 드롭다운 메뉴에서 관리할 학급을 선택하세요.</p>
                     </div>
-                    {loading ? (
-                        <div className="text-center py-16"><p className="text-gray-500 text-lg">데이터를 불러오는 중입니다...</p></div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                            {filteredStudents.map(student => (
-                                <StudentCard 
-                                    key={student.id}
-                                    student={student}
-                                    assignments={assignments}
-                                    unsubmittedCount={getUnsubmittedCount(student.id)}
-                                    isSubmitted={isSubmitted}
-                                    onToggleSubmission={handleToggleSubmission}
-                                    onDetailClick={() => setModal({ type: 'studentDetail', data: student })}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </section>
+                )}
             </main>
             <ModalManager
                 modal={modal}
                 closeModal={() => setModal({ type: null, data: null })}
-                students={students}
-                assignments={assignments}
+                students={currentStudents}
+                assignments={currentAssignments}
                 submissions={submissions}
+                classes={classes}
+                selectedClassId={selectedClassId}
                 onAddStudent={handleAddStudent}
                 onUpdateStudent={handleUpdateStudent}
                 onDeleteStudent={handleDeleteStudent}
                 onAddAssignment={handleAddAssignment}
-                onDeleteAssignment={handleDeleteAssignment}
+                onArchiveAssignment={handleArchiveAssignment}
+                onAddClass={handleAddClass}
+                onDeleteClass={handleDeleteClass}
+                onExportData={handleExportData}
             />
         </div>
     );
@@ -202,19 +238,28 @@ const Header = ({ onMenuClick }) => (
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 py-6">
                 <div className="text-center md:text-left">
-                    <h1 className="text-4xl font-bold flex items-center justify-center md:justify-start gap-3">
-                        <BookIcon /> 과제 관리 시스템
-                    </h1>
+                    <h1 className="text-4xl font-bold flex items-center justify-center md:justify-start gap-3"><BookIcon /> 과제 관리 시스템</h1>
                     <p className="text-indigo-200 mt-1 text-base">학생과 교사를 위한 스마트 과제 관리</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
+                    <button onClick={() => onMenuClick('classManage')} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors text-sm md:text-base">학급 관리</button>
                     <button onClick={() => onMenuClick('assignmentManage')} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors text-sm md:text-base">과제 관리</button>
-                    <button onClick={() => onMenuClick('notice')} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors text-sm md:text-base">공지사항</button>
                     <button onClick={() => onMenuClick('studentManage')} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors text-sm md:text-base">학생 관리</button>
                 </div>
             </div>
         </div>
     </header>
+);
+
+const ClassSelector = ({ classes, selectedClassId, onClassChange }) => (
+    <select 
+        value={selectedClassId} 
+        onChange={(e) => onClassChange(e.target.value)}
+        className="form-select block w-full md:w-64 px-4 py-2 text-base font-normal text-gray-700 bg-white bg-clip-padding bg-no-repeat border border-solid border-gray-300 rounded-lg transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none"
+    >
+        <option value="">-- 학급 선택 --</option>
+        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+    </select>
 );
 
 const Dashboard = ({ totalStudents, submittedCount, notSubmittedCount }) => (
@@ -226,16 +271,10 @@ const Dashboard = ({ totalStudents, submittedCount, notSubmittedCount }) => (
 );
 
 const StatCard = ({ icon, title, value, color }) => {
-    const colors = { 
-        blue: 'text-blue-500', 
-        green: 'text-green-500', 
-        red: 'text-red-500' 
-    };
+    const colors = { blue: 'text-blue-500', green: 'text-green-500', red: 'text-red-500' };
     return (
         <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200 flex items-center gap-5">
-            <div className={`p-3 rounded-full bg-gray-100 ${colors[color]}`}>
-                {icon}
-            </div>
+            <div className={`p-3 rounded-full bg-gray-100 ${colors[color]}`}>{icon}</div>
             <div>
                 <p className="text-base text-gray-500">{title}</p>
                 <p className="text-3xl font-bold text-gray-800">{value}</p>
@@ -249,28 +288,14 @@ const FilterControls = ({ currentFilter, onFilterChange }) => {
     return (
         <div className="flex gap-2 bg-gray-200 rounded-lg p-1.5">
             {filters.map(f => (
-                <button 
-                    key={f.key} 
-                    onClick={() => onFilterChange(f.key)} 
-                    className={`px-5 py-2 rounded-md font-semibold text-sm transition-all duration-200 ${
-                        currentFilter === f.key 
-                        ? 'bg-white text-indigo-600 shadow-sm' 
-                        : 'text-gray-500 hover:bg-gray-300'
-                    }`}
-                >
-                    {f.label}
-                </button>
+                <button key={f.key} onClick={() => onFilterChange(f.key)} className={`px-5 py-2 rounded-md font-semibold text-sm transition-all duration-200 ${currentFilter === f.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-300'}`}>{f.label}</button>
             ))}
         </div>
     );
 };
 
 const StudentCard = ({ student, assignments, unsubmittedCount, isSubmitted, onToggleSubmission, onDetailClick }) => {
-    const truncateText = (text, maxLength) => {
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength) + '...';
-    };
-
+    const truncateText = (text, maxLength) => text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
     return (
         <div className="bg-white rounded-xl p-5 card-shadow border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col">
             <div className="text-center">
@@ -298,7 +323,11 @@ const StudentCard = ({ student, assignments, unsubmittedCount, isSubmitted, onTo
 
 const ModalManager = ({ modal, closeModal, ...props }) => {
     if (!modal.type) return null;
-    const ModalComponent = { studentManage: StudentManageModal, assignmentManage: AssignmentManageModal, studentDetail: StudentDetailModal, notice: NoticeModal }[modal.type];
+    if (!props.selectedClassId && ['studentManage', 'assignmentManage'].includes(modal.type)) {
+        alert("먼저 학급을 선택해주세요.");
+        return null;
+    }
+    const ModalComponent = { classManage: ClassManageModal, studentManage: StudentManageModal, assignmentManage: AssignmentManageModal, studentDetail: StudentDetailModal }[modal.type];
     return <ModalComponent closeModal={closeModal} data={modal.data} {...props} />;
 };
 
@@ -311,13 +340,36 @@ const Modal = ({ children, title, closeModal }) => (
     </div>
 );
 
-const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStudent, onDeleteStudent }) => {
+const ClassManageModal = ({ closeModal, classes, onAddClass, onDeleteClass }) => {
+    const [className, setClassName] = useState('');
+    const handleSubmit = (e) => { e.preventDefault(); onAddClass(className); setClassName(''); };
+    return (
+        <Modal title="학급 관리" closeModal={closeModal}>
+            <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 mb-6 flex gap-2">
+                <input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="새 학급 이름 (예: 1학년 1반)" className="flex-grow px-3 py-2 border rounded-lg" required />
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium">추가</button>
+            </form>
+            <div className="space-y-3">
+                {classes.map(c => (
+                    <div key={c.id} className="bg-white border rounded-lg p-3 flex items-center justify-between">
+                        <span className="font-medium">{c.name}</span>
+                        <button onClick={() => onDeleteClass(c.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-full"><TrashIcon /></button>
+                    </div>
+                ))}
+            </div>
+        </Modal>
+    );
+};
+
+const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStudent, onDeleteStudent, classes, selectedClassId }) => {
     const [form, setForm] = useState({ id: null, name: '', photo: '' });
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef(null);
+
+    const currentClassName = classes.find(c => c.id === selectedClassId)?.name;
 
     const handleImageChange = (e) => {
         if (e.target.files[0]) {
@@ -338,9 +390,7 @@ const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStuden
         e.preventDefault();
         setIsUploading(true);
         let photoUrl = form.photo;
-        if (imageFile) {
-            photoUrl = await uploadImage(imageFile);
-        }
+        if (imageFile) photoUrl = await uploadImage(imageFile);
         
         if (isEditing) {
             onUpdateStudent({ ...form, photo: photoUrl });
@@ -351,23 +401,11 @@ const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStuden
         resetForm();
     };
 
-    const startEdit = (student) => {
-        setIsEditing(true);
-        setForm(student);
-        setImagePreview(student.photo);
-        setImageFile(null);
-    };
-
-    const resetForm = () => {
-        setIsEditing(false);
-        setForm({ id: null, name: '', photo: '' });
-        setImageFile(null);
-        setImagePreview('');
-        if(fileInputRef.current) fileInputRef.current.value = "";
-    };
+    const startEdit = (student) => { setIsEditing(true); setForm(student); setImagePreview(student.photo); setImageFile(null); };
+    const resetForm = () => { setIsEditing(false); setForm({ id: null, name: '', photo: '' }); setImageFile(null); setImagePreview(''); if(fileInputRef.current) fileInputRef.current.value = ""; };
 
     return (
-        <Modal title="학생 관리" closeModal={closeModal}>
+        <Modal title={`학생 관리: ${currentClassName}`} closeModal={closeModal}>
             <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
                 <h4 className="font-semibold text-gray-800">{isEditing ? "학생 정보 수정" : "새 학생 추가"}</h4>
                 <div className="flex items-center gap-4">
@@ -375,15 +413,11 @@ const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStuden
                     <div className="flex-grow">
                         <input name="name" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="학생 이름" className="w-full px-3 py-2 border rounded-lg mb-2" required />
                         <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" ref={fileInputRef} />
-                        <button type="button" onClick={() => fileInputRef.current.click()} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-100">
-                            <CameraIcon /> 사진 선택
-                        </button>
+                        <button type="button" onClick={() => fileInputRef.current.click()} className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-100"><CameraIcon /> 사진 선택</button>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <button type="submit" disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:bg-blue-300">
-                        {isUploading ? "저장 중..." : (isEditing ? "수정 완료" : "학생 추가")}
-                    </button>
+                    <button type="submit" disabled={isUploading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium disabled:bg-blue-300">{isUploading ? "저장 중..." : (isEditing ? "수정 완료" : "학생 추가")}</button>
                     {isEditing && <button type="button" onClick={resetForm} className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">취소</button>}
                 </div>
             </form>
@@ -399,57 +433,35 @@ const StudentManageModal = ({ closeModal, students, onAddStudent, onUpdateStuden
     );
 };
 
-const AssignmentManageModal = ({ closeModal, assignments, onAddAssignment, onDeleteAssignment }) => {
+const AssignmentManageModal = ({ closeModal, assignments, onAddAssignment, onArchiveAssignment, onExportData }) => {
     const subjects = ['국어', '수학', '사회', '과학', '영어', '미술', '체육', '음악', '도덕', '주제글쓰기', '동아리', '창체', '기타'];
     const [form, setForm] = useState({ subject: subjects[0], title: '', dueDate: '', description: '' });
-
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddAssignment(form);
-        setForm({ subject: subjects[0], title: '', dueDate: '', description: '' });
-    };
-
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    const handleSubmit = (e) => { e.preventDefault(); onAddAssignment(form); setForm({ subject: subjects[0], title: '', dueDate: '', description: '' }); };
+    
     return (
         <Modal title="과제 관리" closeModal={closeModal}>
             <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
                 <h4 className="font-semibold text-gray-800">새 과제 등록</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">교과</label>
-                        <select name="subject" id="subject" value={form.subject} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg bg-white">
-                            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">과제 제목</label>
-                        <input name="title" id="title" value={form.title} onChange={handleChange} placeholder="과제 제목을 입력하세요" className="w-full px-3 py-2 border rounded-lg" required />
-                    </div>
+                    <div><label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">교과</label><select name="subject" id="subject" value={form.subject} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg bg-white">{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div><label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">과제 제목</label><input name="title" id="title" value={form.title} onChange={handleChange} placeholder="과제 제목을 입력하세요" className="w-full px-3 py-2 border rounded-lg" required /></div>
                 </div>
-                <div>
-                    <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
-                    <input name="dueDate" id="dueDate" value={form.dueDate} onChange={handleChange} type="date" className="w-full px-3 py-2 border rounded-lg" />
-                </div>
-                <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">과제 설명</label>
-                    <textarea name="description" id="description" value={form.description} onChange={handleChange} placeholder="과제에 대한 설명을 입력하세요" className="w-full px-3 py-2 border rounded-lg" rows="3"></textarea>
-                </div>
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">등록하기</button>
+                <div><label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">마감일</label><input name="dueDate" id="dueDate" value={form.dueDate} onChange={handleChange} type="date" className="w-full px-3 py-2 border rounded-lg" /></div>
+                <div><label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">과제 설명</label><textarea name="description" id="description" value={form.description} onChange={handleChange} placeholder="과제에 대한 설명을 입력하세요" className="w-full px-3 py-2 border rounded-lg" rows="3"></textarea></div>
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">등록하기</button>
             </form>
             <div className="space-y-3">
-                <h4 className="font-semibold text-gray-800 mb-2">등록된 과제 목록</h4>
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-semibold text-gray-800">활성화된 과제 목록</h4>
+                    <button onClick={onExportData} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm"><DownloadIcon /> CSV로 내보내기</button>
+                </div>
                 {assignments.length > 0 ? assignments.map(a => (
                     <div key={a.id} className="bg-white border rounded-lg p-3 flex items-center justify-between">
-                        <div>
-                            <p className="font-medium">[{a.subject}] {a.title}</p>
-                            <p className="text-sm text-gray-500">마감일: {a.dueDate || '미정'}</p>
-                        </div>
-                        <button onClick={() => onDeleteAssignment(a.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-full"><TrashIcon /></button>
+                        <div><p className="font-medium">[{a.subject}] {a.title}</p><p className="text-sm text-gray-500">마감일: {a.dueDate || '미정'}</p></div>
+                        <button onClick={() => onArchiveAssignment(a.id)} className="p-2 text-yellow-600 hover:bg-yellow-100 rounded-full" title="과제 보관하기"><ArchiveIcon /></button>
                     </div>
-                )) : <p className="text-center text-gray-500 py-4">등록된 과제가 없습니다.</p>}
+                )) : <p className="text-center text-gray-500 py-4">활성화된 과제가 없습니다.</p>}
             </div>
         </Modal>
     );
@@ -468,19 +480,11 @@ const StudentDetailModal = ({ closeModal, data: student, assignments, submission
                                 <p className="text-gray-600 text-sm mb-2">{a.description || '설명 없음'}</p>
                                 <p className="text-gray-500 text-xs">마감일: {a.dueDate || '미정'}</p>
                             </div>
-                            <div className={`font-medium text-sm ${isSubmitted ? 'text-green-600' : 'text-red-600'}`}>
-                                {isSubmitted ? '✅ 제출완료' : '⏰ 미제출'}
-                            </div>
+                            <div className={`font-medium text-sm ${isSubmitted ? 'text-green-600' : 'text-red-600'}`}>{isSubmitted ? '✅ 제출완료' : '⏰ 미제출'}</div>
                         </div>
                     </div>
                 );
             }) : <p className="text-center text-gray-500 py-8">해당 학생에게 부여된 과제가 없습니다.</p>}
         </div>
-    </Modal>
-);
-
-const NoticeModal = ({ closeModal }) => (
-    <Modal title="공지사항" closeModal={closeModal}>
-        <p className="text-gray-600">공지사항 기능은 현재 개발 중입니다. 곧 멋진 모습으로 찾아뵙겠습니다!</p>
     </Modal>
 );
