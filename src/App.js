@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
     getFirestore, 
@@ -95,9 +95,9 @@ export default function App() {
     const currentAssignments = allAssignments.filter(a => a.classId === selectedClassId && !a.isArchived);
     
     // Helper 함수
-    const getUnsubmittedCount = (studentId) => {
+    const getUnsubmittedCount = useCallback((studentId) => {
         return currentAssignments.length - submissions.filter(s => s.studentId === studentId && currentAssignments.some(a => a.id === s.assignmentId) && s.submitted).length;
-    };
+    }, [currentAssignments, submissions]);
 
     const isSubmitted = (studentId, assignmentId) => {
         return submissions.some(s => s.studentId === studentId && s.assignmentId === assignmentId && s.submitted);
@@ -126,7 +126,7 @@ export default function App() {
                     return b.name.localeCompare(a.name, 'ko');
                 }
             });
-    }, [currentStudents, filter, sortOrder, submissions, currentAssignments]);
+    }, [currentStudents, filter, sortOrder, getUnsubmittedCount, currentAssignments]);
 
 
     // --- Firestore 데이터 핸들러 ---
