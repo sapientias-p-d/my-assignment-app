@@ -397,16 +397,16 @@ const StudentCard = ({ student, assignments, unsubmittedCount, isSubmitted, onTo
                 <h3 className="text-xl font-semibold text-gray-800">{student.name}</h3>
                 {assignments.length > 0 && (<div className={`text-sm font-medium px-3 py-1 rounded-full inline-block mt-1 mb-4 ${unsubmittedCount > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{unsubmittedCount > 0 ? `미제출 ${unsubmittedCount}개` : '모든 과제 완료'}</div>)}
             </div>
-            <div className="space-y-2 mb-4 flex-grow h-48 overflow-y-auto p-1">
+            <div className="space-y-2 mb-4 flex-grow h-52 overflow-y-auto p-1">
                 {assignments.length > 0 ? assignments.map(assignment => (
-                    <button key={assignment.id} onClick={() => onToggleSubmission(student.id, assignment.id)} className={`w-full text-left text-white px-4 py-2 rounded-lg transition-transform duration-200 hover:scale-105 ${isSubmitted(student.id, assignment.id) ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}>
+                    <button key={assignment.id} onClick={() => onToggleSubmission(student.id, assignment.id)} className={`w-full text-left text-white px-4 py-3 rounded-lg transition-transform duration-200 hover:scale-105 ${isSubmitted(student.id, assignment.id) ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}>
                         <div className="flex items-start justify-between">
                             <div>
-                                <div className="text-xs font-semibold opacity-80">{assignment.subject}</div>
-                                <div className="font-semibold text-sm">{truncateText(assignment.title, 12)}</div>
+                                <div className="text-sm font-semibold opacity-80">{assignment.subject}</div>
+                                <div className="font-semibold text-base">{truncateText(assignment.title, 10)}</div>
                                 <div className="text-xs opacity-70 mt-1">마감: {assignment.dueDate || '미지정'}</div>
                             </div>
-                            <span className="text-sm pt-1">{isSubmitted(student.id, assignment.id) ? '✓ 완료' : '제출하기'}</span>
+                            <span className="text-base pt-1">{isSubmitted(student.id, assignment.id) ? '✓ 완료' : '제출하기'}</span>
                         </div>
                     </button>
                 )) : <p className="text-gray-400 text-sm text-center pt-16">등록된 과제 없음</p>}
